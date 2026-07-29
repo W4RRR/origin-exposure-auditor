@@ -1,0 +1,33 @@
+name: external-integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      laboratory_domain:
+        description: Authorized laboratory domain
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    if: github.event.repository.fork == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: protected-integration
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e ".[dev]"
+      - name: Run explicitly enabled integration tests
+        env:
+          ORIGIN_AUDIT_RUN_INTEGRATION: "1"
+          ORIGIN_AUDIT_LAB_DOMAIN: ${{ inputs.laboratory_domain }}
+          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY }}
+          VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
+          CENSYS_API_TOKEN: ${{ secrets.CENSYS_API_TOKEN }}
+        run: pytest -m integration -q

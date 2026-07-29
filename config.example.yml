@@ -1,0 +1,57 @@
+timeout_seconds: 10
+concurrency: 5
+rate_limit: 2
+user_agent: origin-exposure-auditor/0.1.0
+max_response_bytes: 2000000
+max_redirects: 5
+cache_dir: cache
+output_dir: output
+
+providers:
+  dns:
+    requests_per_second: 2
+    max_retries: 0
+    cache_ttl_hours: 1
+  ct:
+    requests_per_second: 1
+    max_retries: 3
+    cache_ttl_hours: 24
+  virustotal:
+    requests_per_second: 0.066
+    max_retries: 3
+    cache_ttl_hours: 24
+    max_pages: 3
+  shodan:
+    requests_per_second: 1
+    max_retries: 3
+    cache_ttl_hours: 12
+    max_pages: 2
+    query_template: 'ssl:"{domain}"'
+  censys:
+    requests_per_second: 1
+    max_retries: 3
+    cache_ttl_hours: 12
+    max_pages: 2
+    query_template: 'host.services.cert.names = "{domain}"'
+  urlscan:
+    requests_per_second: 1
+    max_retries: 3
+    cache_ttl_hours: 12
+
+scoring:
+  historical_dns: 25
+  certificate_match: 20
+  favicon_match: 15
+  body_hash_match: 25
+  title_match: 8
+  multi_source_bonus: 10
+  hostname_match: 8
+  current_dns: -15
+  known_cdn_range: -40
+  unrelated_certificate: -25
+  generic_cloud_page: -10
+  stale_observation: -8
+  confirmed_threshold: 80
+  high_threshold: 60
+  medium_threshold: 35
+  low_threshold: 1

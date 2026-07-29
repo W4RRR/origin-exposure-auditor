@@ -1,0 +1,22 @@
+authorized_domains:
+  - example.com
+  - "*.example.com"
+
+authorized_ips:
+  - "192.0.2.0/24"
+
+excluded_domains:
+  - excluded.example.com
+
+excluded_ips:
+  - "192.0.2.50"
+
+# Keep false until the owner has reviewed and intentionally enabled this scope.
+allow_active_validation: false
+
+# If true, discovered public IPs may be validated even when not listed above.
+allow_discovered_candidates: false
+
+max_requests_per_second: 2
+max_concurrent_requests: 5
+request_timeout_seconds: 10

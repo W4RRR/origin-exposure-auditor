@@ -1,0 +1,21 @@
+providers:
+  cloudflare:
+    headers: [cf-ray, cf-cache-status]
+    server: [cloudflare]
+    cookies: [__cf_bm]
+  akamai:
+    headers: [akamai-grn, x-akamai-transformed]
+    server: [akamaighost]
+    cookies: [ak_bmsc]
+  fastly:
+    headers: [x-served-by, x-cache-hits]
+    server: [varnish]
+    cookies: []
+  amazon-cloudfront:
+    headers: [x-amz-cf-id, x-amz-cf-pop]
+    server: [cloudfront]
+    cookies: [cloudfront-]
+  imperva:
+    headers: [x-iinfo]
+    server: [imperva]
+    cookies: [incap_ses]

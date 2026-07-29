@@ -1,0 +1,28 @@
+services:
+  origin-audit:
+    build:
+      context: .
+    image: origin-exposure-auditor:local
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid
+    volumes:
+      - ./output:/app/output
+      - ./cache:/app/cache
+      - ./config.example.yml:/app/config/config.yml:ro
+      - ./scope.example.yml:/app/config/scope.yml:ro
+    environment:
+      SHODAN_API_KEY: ${SHODAN_API_KEY:-}
+      VIRUSTOTAL_API_KEY: ${VIRUSTOTAL_API_KEY:-}
+      CENSYS_API_TOKEN: ${CENSYS_API_TOKEN:-}
+      CENSYS_ORGANIZATION_ID: ${CENSYS_ORGANIZATION_ID:-}
+      SECURITYTRAILS_API_KEY: ${SECURITYTRAILS_API_KEY:-}
+      URLSCAN_API_KEY: ${URLSCAN_API_KEY:-}
+      FOFA_EMAIL: ${FOFA_EMAIL:-}
+      FOFA_API_KEY: ${FOFA_API_KEY:-}
+      OTX_API_KEY: ${OTX_API_KEY:-}
+      VIEWDNS_API_KEY: ${VIEWDNS_API_KEY:-}
