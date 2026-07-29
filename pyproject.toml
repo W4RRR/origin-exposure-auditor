@@ -1,0 +1,119 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "origin-exposure-auditor"
+version = "0.1.0"
+description = "Defensive, authorized assessment of accidental origin-server exposure."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "origin-exposure-auditor contributors" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Information Technology",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security",
+]
+dependencies = [
+  "dnspython>=2.7,<3",
+  "httpx>=0.28,<1",
+  "mmh3>=5.1,<6",
+  "pydantic>=2.10,<3",
+  "python-dotenv>=1.1,<2",
+  "PyYAML>=6.0.2,<7",
+  "typer>=0.15,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "bandit[toml]>=1.8,<2",
+  "build>=1.2,<2",
+  "mypy>=1.15,<2",
+  "pre-commit>=4.2,<5",
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.26,<1",
+  "pytest-cov>=6,<7",
+  "respx>=0.22,<1",
+  "ruff>=0.11,<1",
+  "types-PyYAML>=6.0.12,<7",
+]
+
+[project.scripts]
+origin-audit = "origin_audit.cli:app"
+
+[project.urls]
+Documentation = "https://github.com/example/origin-exposure-auditor#readme"
+Issues = "https://github.com/example/origin-exposure-auditor/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/origin_audit"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/tests",
+  "/data",
+  "/examples",
+  "/scripts",
+  "/README.md",
+  "/LICENSE",
+  "/SECURITY.md",
+  "/CONTRIBUTING.md",
+  "/CHANGELOG.md",
+  "/config.example.yml",
+  "/scope.example.yml",
+  "/.env.example",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["examples/reports"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "S", "RUF"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S105", "S106", "S108"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+exclude = ["build"]
+
+[[tool.mypy.overrides]]
+module = ["mmh3"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+  "integration: opt-in tests that may contact explicitly configured laboratory services",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["origin_audit"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 85
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  "raise NotImplementedError",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "build"]
+skips = ["B101"]
