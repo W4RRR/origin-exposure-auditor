@@ -16,7 +16,7 @@ runner = CliRunner()
 def test_version_and_provider_commands() -> None:
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert result.stdout.strip() == "0.1.0"
+    assert result.stdout.strip() == "0.2.0"
     result = runner.invoke(app, ["providers", "list"])
     assert result.exit_code == 0
     assert "virustotal" in result.stdout
@@ -47,16 +47,10 @@ def test_scan_rejects_unsafe_flag_combinations(tmp_path: Path) -> None:
         ["scan", "example.com", "-active"],
     )
     assert result.exit_code == 2
-    assert "requires --authorized-scope" in result.output
+    assert "requires -authorized-scope" in result.output
     result = runner.invoke(
         app,
-        ["scan", "example.com", "--active-validate"],
-    )
-    assert result.exit_code == 2
-    assert "requires --authorized-scope" in result.output
-    result = runner.invoke(
-        app,
-        ["scan", "example.com", "--active-validate", "--passive-only"],
+        ["scan", "example.com", "-active", "-passive"],
     )
     assert result.exit_code == 2
     assert "mutually exclusive" in result.output
@@ -91,10 +85,10 @@ def test_urlscan_noninteractive_requires_acceptance() -> None:
     result = runner.invoke(
         app,
         [
-            "--non-interactive",
+            "-non-interactive",
             "scan",
             "example.com",
-            "--submit-urlscan",
+            "-submit-urlscan",
         ],
     )
     assert result.exit_code == 2
@@ -105,7 +99,7 @@ def test_report_command(tmp_path: Path) -> None:
     source = Path(__file__).parents[1] / "examples" / "reports" / "report.json"
     target = tmp_path / "report.json"
     target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
-    result = runner.invoke(app, ["report", str(target), "--format", "markdown,html"])
+    result = runner.invoke(app, ["report", str(target), "-format", "markdown,html"])
     assert result.exit_code == 0
     assert (tmp_path / "report.md").exists()
     assert (tmp_path / "report.html").exists()
@@ -128,12 +122,18 @@ def test_scan_success_without_network(tmp_path: Path, monkeypatch: pytest.Monkey
         [
             "scan",
             "example.com",
-            "--providers",
+            "-providers",
             "dns,ct",
-            "--format",
+            "-format",
             "json,markdown",
         ],
     )
     assert result.exit_code == 0
     assert "Assessment complete" in result.stdout
     assert (directory / "report.json").exists()
+
+
+def test_color_output() -> None:
+    result = runner.invoke(app, ["-color", "providers", "list"], color=True)
+    assert result.exit_code == 0
+    assert "\033[" in result.output

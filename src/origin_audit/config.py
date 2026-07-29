@@ -54,7 +54,7 @@ class AppConfig(BaseModel):
     timeout_seconds: float = 10.0
     concurrency: int = 5
     rate_limit: float = 2.0
-    user_agent: str = "origin-exposure-auditor/0.1.0"
+    user_agent: str = "origin-exposure-auditor/0.2.0"
     max_response_bytes: int = 2_000_000
     max_redirects: int = 5
     cache_dir: Path = Path("cache")

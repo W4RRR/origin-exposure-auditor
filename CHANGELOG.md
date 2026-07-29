@@ -2,13 +2,20 @@
 
 All notable changes follow a simplified Keep a Changelog format.
 
-## [Unreleased]
+## [0.2.0] - 2026-07-29
 
 ### Added
 
-- `-active` compact alias for scope-gated active validation.
-- `-up`/`--upgrade` shortcut for reinstalling the latest GitHub `main` branch.
-- Explained command examples and a full authorized active-assessment one-liner.
+- Single-dash CLI parameters, including `-active`, `-httpx`, `-v`, and `-up`.
+- Optional `-color` terminal output for logs, provider states, and summaries.
+- Illustrated README sections, a parameter guide, and a full active-assessment one-liner.
+
+### Changed
+
+- The authorizing scope file is now the explicit authorization control for active
+  validation; the separate acknowledgement flag was removed.
+- ProjectDiscovery integration is now exposed as `-httpx`.
+- Package and default user-agent version updated to 0.2.0.
 
 ## [0.1.0] - 2026-07-24
 

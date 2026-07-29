@@ -1,4 +1,4 @@
-# origin-exposure-auditor
+# 🕵️ Origin Exposure Auditor
 
 `origin-audit` is a defensive CLI for finding evidence of accidental origin-server
 exposure behind a WAF, CDN, or reverse proxy. It correlates current DNS, public
@@ -12,7 +12,7 @@ origin.
 It does not exploit vulnerabilities, bypass authentication, brute-force services, scan
 directories or ports, evade WAF rules, submit payloads, or run denial-of-service tests.
 
-## Why Python instead of Bash
+## 🐍 Why Python instead of Bash
 
 The original proof of concept chained `curl`, `jq`, `grep`, `sort`, Shodan, and httpx.
 That is useful for exploration but is not a safe maintenance boundary for paginated
@@ -20,14 +20,14 @@ APIs, typed evidence, retries, rate limits, caching, TLS parsing, multi-format r
 or tests. Python 3.12 provides those boundaries. The Bash wrapper only bootstraps an
 isolated environment and propagates the Python process exit code.
 
-## Architecture
+## 🧭 Architecture
 
 The pipeline is deliberately one-way:
 
 1. Normalize and validate the authorized domain.
 2. Collect passive observations through independent providers.
 3. Merge candidate IPs while retaining source and evidence provenance.
-4. Remove non-global addresses unless `--include-non-public` is requested.
+4. Remove non-global addresses unless `-include-non-public` is requested.
 5. Fetch one bounded baseline response from the named target.
 6. Optionally validate candidates only after scope and consent checks.
 7. Apply transparent scoring rules and write reproducible reports.
@@ -37,7 +37,7 @@ or `failed`. One provider failure never terminates the entire scan. Cache keys c
 only non-secret parameters, and complete third-party responses are not retained by
 default.
 
-## Repository layout
+## 🗂️ Repository layout
 
 ```text
 .
@@ -134,7 +134,7 @@ default.
 └── scope.example.yml
 ```
 
-## Installation
+## 📦 Installation
 
 Requirements: Python 3.12 or newer. Debian 12, Ubuntu 24.04+, current Kali Linux, and
 recent macOS are supported. On Windows, use WSL2 or Docker Desktop.
@@ -152,13 +152,13 @@ Quick start through the wrapper:
 
 ```bash
 chmod +x scripts/origin-audit.sh
-scripts/origin-audit.sh scan example.com --passive-only
+scripts/origin-audit.sh scan example.com -passive
 ```
 
 The wrapper finds Python, creates `.venv`, installs the local package when needed,
 executes the module, and returns its exact exit code.
 
-## Configuration and API keys
+## 🔑 Configuration and API keys
 
 Copy the examples:
 
@@ -179,7 +179,7 @@ export CENSYS_API_TOKEN="value"
 Credential precedence is:
 
 1. system environment;
-2. the file supplied with `--env-file`;
+2. the file supplied with `-env-file`;
 3. `.env` in the current directory;
 4. `~/.config/origin-exposure-auditor/.env`.
 
@@ -193,18 +193,19 @@ should reference `${{ secrets.NAME }}` and must not run real provider queries fo
 requests from forks. This repository's real-provider workflow is manual, fork-blocked,
 time-limited, and attached to a protected environment.
 
-## Usage
+## 🚀 Usage
 
 Passive mode is the default:
 
 | Command | What it does |
 |---|---|
 | `origin-audit scan example.com` | Runs the default passive assessment and writes all default report formats. |
-| `origin-audit scan example.com --providers dns,ct,otx,urlscan` | Uses only current DNS, Certificate Transparency, OTX, and existing urlscan results. |
-| `origin-audit scan example.com --providers all --format json,csv,markdown,html` | Tries every provider and writes JSON, CSV, Markdown, and HTML reports. Providers without credentials are skipped. |
-| `origin-audit scan example.com --output-dir ./results` | Stores the run under `./results` instead of the default `./output` directory. |
-| `origin-audit scan example.com --use-projectdiscovery-httpx` | Adds bounded related-hostname probing through the optional ProjectDiscovery `httpx` executable. |
-| `origin-audit providers list` | Lists every built-in provider name accepted by `--providers`. |
+| `origin-audit scan example.com -providers dns,ct,otx,urlscan` | Uses only current DNS, Certificate Transparency, OTX, and existing urlscan results. |
+| `origin-audit scan example.com -providers all -format json,csv,markdown,html` | Tries every provider and writes JSON, CSV, Markdown, and HTML reports. Providers without credentials are skipped. |
+| `origin-audit scan example.com -output-dir ./results` | Stores the run under `./results` instead of the default `./output` directory. |
+| `origin-audit scan example.com -httpx` | Adds bounded related-hostname probing through the optional ProjectDiscovery `httpx` executable. |
+| `origin-audit -color scan example.com` | Adds ANSI colors to human-readable logs, provider states, and the terminal summary. |
+| `origin-audit providers list` | Lists every built-in provider name accepted by `-providers`. |
 | `origin-audit providers status` | Shows which provider credentials and optional local tools are available without printing secrets. |
 | `origin-audit config validate config.example.yml` | Validates an application configuration file without running an assessment. |
 | `origin-audit scope validate scope.example.yml` | Validates an authorization scope file and summarizes its active status and limits. |
@@ -215,24 +216,38 @@ No API keys are required for current DNS, public Certificate Transparency, OTX p
 endpoints, the named target's bounded HTTP/TLS baseline, or optional local `wafw00f`.
 Missing credentials mark a provider `skipped` and the scan continues.
 
-`--use-projectdiscovery-httpx` is optional. The adapter first verifies that the
+`-httpx` is optional. The adapter first verifies that the
 executable identifies itself as ProjectDiscovery httpx (not the Python package's CLI),
 then probes at most 200 related hostnames that resolve exclusively to global addresses.
 It does not use external httpx for direct-to-IP Host/SNI validation; that safety-critical
 path remains in the built-in Python implementation.
 
-### Authorized active validation
+### 🧰 Parameter guide
 
-Active validation is off by default. All three controls are mandatory:
+| Parameter | Meaning |
+|---|---|
+| `-active` | Enables bounded direct validation of retained public candidate IPs. It requires an authorizing scope file. |
+| `-authorized-scope scope.yml` | Loads the YAML allowlist for active validation. It defines authorized domains and IP/CIDR ranges, exclusions, request rate, concurrency, timeout, and whether active validation is enabled. |
+| `-legacy-ip-list` | Additionally writes `DOMAIN_ips.txt`, with one retained candidate IP per line, for compatibility with shell scripts and older tools. Structured reports are still produced. |
+| `-httpx` | Uses the optional ProjectDiscovery `httpx` binary for bounded related-hostname probing. It does not replace the built-in direct-IP validator. |
+| `-providers all` | Selects providers. Use `all` or a comma-separated list such as `dns,ct,otx,urlscan`. |
+| `-format json,csv,markdown,html` | Selects the report formats written by the run. |
+| `-output-dir ./results` | Changes the report destination directory. |
+| `-v` | Enables verbose `DEBUG` logging. |
+| `-color` | Enables colored human-readable terminal output. JSON logs and generated report files remain uncolored. |
+| `-up` | Force-reinstalls the latest GitHub `main` branch into the current Python environment. |
+
+### 🎯 Authorized active validation
+
+Active validation is off by default. The `-active` flag and an authorizing scope file
+are mandatory:
 
 ```bash
-origin-audit scan example.com -active --authorized-scope scope.yml --i-understand-and-am-authorized
+origin-audit scan example.com -active -authorized-scope scope.yml
 ```
 
-`-active` is the compact alias for `--active-validate`. The scope file and explicit
-authorization acknowledgement remain mandatory.
-
-The scope must also set `allow_active_validation: true`, authorize the domain, and
+The scope file is the explicit authorization control. It must set
+`allow_active_validation: true`, authorize the domain, and
 either include each candidate IP/CIDR or explicitly set
 `allow_discovered_candidates: true`. Exclusions always win. Private, loopback,
 link-local, multicast, reserved, unspecified, and other non-global addresses are never
@@ -243,38 +258,39 @@ TLS handshake with the target hostname as SNI. Concurrency, request rate, timeou
 response size are bounded. There is no TLS-disable option.
 
 Full authorized example with all providers, all report formats, verbose logging,
-ProjectDiscovery `httpx`, a dedicated output directory, and the compatibility IP list:
+colored output, ProjectDiscovery `httpx`, a dedicated output directory, and the
+compatibility IP list:
 
 ```bash
-origin-audit --config config.yml --env-file .env --timeout 15 --concurrency 10 --rate-limit 2 --verbose scan example.com --providers all --format json,csv,markdown,html --output-dir ./results -active --authorized-scope scope.yml --i-understand-and-am-authorized --use-projectdiscovery-httpx --legacy-ip-list
+origin-audit -config config.yml -env-file .env -timeout 15 -concurrency 10 -rate-limit 2 -v -color scan example.com -providers all -format json,csv,markdown,html -output-dir ./results -active -authorized-scope scope.yml -httpx -legacy-ip-list
 ```
 
 This intentionally does not include urlscan submission because submission discloses
 the target to a third party.
 
-### urlscan.io submission
+### 🌐 urlscan.io submission
 
 Existing urlscan results are queried by default; no scan is submitted. Submission is a
 separate privacy-sensitive operation:
 
 ```bash
-origin-audit scan example.com --submit-urlscan --urlscan-visibility unlisted
+origin-audit scan example.com -submit-urlscan -urlscan-visibility unlisted
 ```
 
 Interactive execution asks for confirmation. Non-interactive execution also requires
-`--accept-urlscan-privacy-risk`. Visibility must be `public`, `unlisted`, or `private`,
+`-accept-urlscan-privacy-risk`. Visibility must be `public`, `unlisted`, or `private`,
 subject to the account's plan.
 
-### Compatibility IP list
+### 📄 Compatibility IP list
 
 ```bash
-origin-audit scan example.com --legacy-ip-list
+origin-audit scan example.com -legacy-ip-list
 ```
 
 This additionally writes `example.com_ips.txt` in the current directory, one retained
 candidate per line. It never replaces the structured report.
 
-## Providers
+## 🔌 Providers
 
 | Provider | API key | Passive | Active | Optional |
 |---|---:|---:|---:|---:|
@@ -312,7 +328,7 @@ MXToolbox is documented as a possible manual corroboration source but is not scr
 ViewDNS automation only uses its contracted API. The tool does not automate third-party
 web pages when an API or local hash computation exists.
 
-## Scoring
+## 🧮 Scoring
 
 Weights and thresholds live in `config.example.yml`. Typical positive rules are
 historical DNS, a related certificate, matching body/favicon/title, related hostnames,
@@ -329,7 +345,7 @@ Every candidate includes the exact point contribution and reason. `confirmed` re
 Without all four, the maximum is `high_confidence`. A single provider observation can
 never confirm an origin.
 
-## Output
+## 📁 Output
 
 Each run creates:
 
@@ -349,24 +365,24 @@ output/example.com/2026-07-24T110000Z/
 The audit log records mode, command summary, sources, errors, limits, authorization
 events, duration, and tool version. It never includes API keys. The `raw` directory is
 empty unless a provider implements an explicitly bounded raw export and
-`--save-raw-responses` is supplied. Screenshot comparison is intentionally not
+`-save-raw-responses` is supplied. Screenshot comparison is intentionally not
 implemented in this release.
 
 Fictitious output examples using only documentation ranges are under
 `examples/reports/`.
 
-## Docker
+## 🐳 Docker
 
 ```bash
 docker compose build
-docker compose run --rm origin-audit scan example.com --passive-only
+docker compose run --rm origin-audit scan example.com -passive
 ```
 
 The final image runs as a non-root user, drops capabilities, uses a read-only root
 filesystem through Compose, and has no embedded credentials. It does not use host
 networking or privileged mode. Output, cache, and configuration are mounted separately.
 
-## Tests and quality
+## ✅ Tests and quality
 
 ```bash
 python -m pip install -e ".[dev]"
@@ -384,7 +400,7 @@ Unit tests mock all external APIs. Integration tests are marked, disabled unless
 `ORIGIN_AUDIT_RUN_INTEGRATION=1`, and require an explicitly configured laboratory
 domain. The coverage gate is 85%.
 
-## Adding a provider
+## 🧩 Adding a provider
 
 1. Create one module under `src/origin_audit/providers/`.
 2. Subclass `Provider`, declare credential environment names, and implement `collect`.
@@ -395,7 +411,7 @@ domain. The coverage gate is 85%.
 5. Register the provider in `provider_registry()` and add mocked parser/error tests.
 6. Link the official API documentation and describe plan limitations.
 
-## Migration from origin.sh
+## 🔄 Migration from origin.sh
 
 The original `origin.sh` accepted one domain, embedded a VirusTotal key, called the
 VirusTotal v2 and OTX endpoints, extracted IPv4 strings with `jq`/`grep`, deduplicated
@@ -410,9 +426,9 @@ The replacement:
 - computes favicon hashes locally;
 - provides bounded Python HTTP/TLS observations;
 - protects direct candidate connections with scope and consent; and
-- retains `--legacy-ip-list` for downstream compatibility.
+- retains `-legacy-ip-list` for downstream compatibility.
 
-## Troubleshooting
+## 🛠️ Troubleshooting
 
 - `SKIPPED`: configure the named environment variable or omit that optional provider.
 - `401/403`: verify the key, plan entitlement, and Censys API Access role.
@@ -422,7 +438,7 @@ The replacement:
 - `wafw00f` absent: the internal response-indicator check still works.
 - Windows path or shell issues: run inside WSL2 or use Docker Desktop.
 
-## Security and limitations
+## 🛡️ Security and limitations
 
 See [SECURITY.md](SECURITY.md). Avoid collecting targets outside written authorization.
 OSINT attribution is noisy: shared hosting, recycled cloud addresses, stale DNS,
