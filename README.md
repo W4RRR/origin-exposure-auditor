@@ -197,18 +197,19 @@ time-limited, and attached to a protected environment.
 
 Passive mode is the default:
 
-```bash
-origin-audit scan example.com
-origin-audit scan example.com --providers dns,ct,otx,urlscan
-origin-audit scan example.com --providers all --format json,csv,markdown,html
-origin-audit scan example.com --output-dir ./results
-origin-audit scan example.com --use-projectdiscovery-httpx
-origin-audit providers list
-origin-audit providers status
-origin-audit config validate config.example.yml
-origin-audit scope validate scope.example.yml
-origin-audit report ./output/example.com/TIMESTAMP/report.json
-```
+| Command | What it does |
+|---|---|
+| `origin-audit scan example.com` | Runs the default passive assessment and writes all default report formats. |
+| `origin-audit scan example.com --providers dns,ct,otx,urlscan` | Uses only current DNS, Certificate Transparency, OTX, and existing urlscan results. |
+| `origin-audit scan example.com --providers all --format json,csv,markdown,html` | Tries every provider and writes JSON, CSV, Markdown, and HTML reports. Providers without credentials are skipped. |
+| `origin-audit scan example.com --output-dir ./results` | Stores the run under `./results` instead of the default `./output` directory. |
+| `origin-audit scan example.com --use-projectdiscovery-httpx` | Adds bounded related-hostname probing through the optional ProjectDiscovery `httpx` executable. |
+| `origin-audit providers list` | Lists every built-in provider name accepted by `--providers`. |
+| `origin-audit providers status` | Shows which provider credentials and optional local tools are available without printing secrets. |
+| `origin-audit config validate config.example.yml` | Validates an application configuration file without running an assessment. |
+| `origin-audit scope validate scope.example.yml` | Validates an authorization scope file and summarizes its active status and limits. |
+| `origin-audit report ./output/example.com/TIMESTAMP/report.json` | Re-renders an existing JSON report as Markdown and HTML without querying providers again. |
+| `origin-audit -up` | Reinstalls the latest `main` branch directly from the public GitHub repository. |
 
 No API keys are required for current DNS, public Certificate Transparency, OTX public
 endpoints, the named target's bounded HTTP/TLS baseline, or optional local `wafw00f`.
@@ -225,11 +226,11 @@ path remains in the built-in Python implementation.
 Active validation is off by default. All three controls are mandatory:
 
 ```bash
-origin-audit scan example.com \
-  --active-validate \
-  --authorized-scope scope.yml \
-  --i-understand-and-am-authorized
+origin-audit scan example.com -active --authorized-scope scope.yml --i-understand-and-am-authorized
 ```
+
+`-active` is the compact alias for `--active-validate`. The scope file and explicit
+authorization acknowledgement remain mandatory.
 
 The scope must also set `allow_active_validation: true`, authorize the domain, and
 either include each candidate IP/CIDR or explicitly set
@@ -241,15 +242,23 @@ The active path is limited to `GET /`, one same-origin favicon request, and a ve
 TLS handshake with the target hostname as SNI. Concurrency, request rate, timeout, and
 response size are bounded. There is no TLS-disable option.
 
+Full authorized example with all providers, all report formats, verbose logging,
+ProjectDiscovery `httpx`, a dedicated output directory, and the compatibility IP list:
+
+```bash
+origin-audit --config config.yml --env-file .env --timeout 15 --concurrency 10 --rate-limit 2 --verbose scan example.com --providers all --format json,csv,markdown,html --output-dir ./results -active --authorized-scope scope.yml --i-understand-and-am-authorized --use-projectdiscovery-httpx --legacy-ip-list
+```
+
+This intentionally does not include urlscan submission because submission discloses
+the target to a third party.
+
 ### urlscan.io submission
 
 Existing urlscan results are queried by default; no scan is submitted. Submission is a
 separate privacy-sensitive operation:
 
 ```bash
-origin-audit scan example.com \
-  --submit-urlscan \
-  --urlscan-visibility unlisted
+origin-audit scan example.com --submit-urlscan --urlscan-visibility unlisted
 ```
 
 Interactive execution asks for confirmation. Non-interactive execution also requires

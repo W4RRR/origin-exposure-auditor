@@ -2,6 +2,14 @@
 
 All notable changes follow a simplified Keep a Changelog format.
 
+## [Unreleased]
+
+### Added
+
+- `-active` compact alias for scope-gated active validation.
+- `-up`/`--upgrade` shortcut for reinstalling the latest GitHub `main` branch.
+- Explained command examples and a full authorized active-assessment one-liner.
+
 ## [0.1.0] - 2026-07-24
 
 ### Added
