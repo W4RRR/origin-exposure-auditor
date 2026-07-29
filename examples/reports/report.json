@@ -1,0 +1,116 @@
+{
+  "tool_version": "0.1.0",
+  "domain": "example.com",
+  "started_at": "2026-07-24T11:00:00Z",
+  "finished_at": "2026-07-24T11:00:01Z",
+  "duration_seconds": 1.0,
+  "mode": "passive",
+  "scope_file": null,
+  "authorization_acknowledged": false,
+  "dns_records": {
+    "A": [
+      "192.0.2.10"
+    ],
+    "AAAA": []
+  },
+  "subdomains": [
+    "api.example.com"
+  ],
+  "waf_detection": {
+    "detected": true,
+    "providers": [
+      "example-edge"
+    ],
+    "indicators": [
+      "example-edge:header:x-example-edge"
+    ],
+    "external_tool": null
+  },
+  "candidates": [
+    {
+      "ip": "203.0.113.10",
+      "ip_version": 4,
+      "sources": [
+        "virustotal",
+        "securitytrails"
+      ],
+      "first_seen": "2025-01-01T00:00:00Z",
+      "last_seen": "2026-01-01T00:00:00Z",
+      "hostnames": [
+        "api.example.com"
+      ],
+      "ports": [
+        443
+      ],
+      "asn": "AS64500",
+      "organization": "Example Network",
+      "country": "ZZ",
+      "cloud_provider": null,
+      "cdn_provider": null,
+      "certificates": [],
+      "http_observations": [],
+      "favicon_hashes": [],
+      "evidence": [
+        {
+          "source": "virustotal",
+          "type": "historical_dns",
+          "value": "api.example.com resolved to 203.0.113.10",
+          "observed_at": "2026-01-01T00:00:00Z",
+          "weight": 0.0,
+          "raw_reference": null,
+          "notes": "Fictitious example"
+        },
+        {
+          "source": "securitytrails",
+          "type": "historical_dns",
+          "value": "api.example.com A 203.0.113.10",
+          "observed_at": "2025-01-01T00:00:00Z",
+          "weight": 0.0,
+          "raw_reference": null,
+          "notes": "Fictitious example"
+        }
+      ],
+      "rejection_reasons": [],
+      "score": 43.0,
+      "confidence": "medium_confidence",
+      "scoring_reasons": [
+        {
+          "rule": "historical_dns",
+          "points": 25.0,
+          "reason": "Historical DNS match"
+        },
+        {
+          "rule": "hostname_match",
+          "points": 8.0,
+          "reason": "Related hostname resolves to candidate"
+        },
+        {
+          "rule": "multi_source_bonus",
+          "points": 10.0,
+          "reason": "Seen in 2 independent sources"
+        }
+      ],
+      "active_validation_performed": false
+    }
+  ],
+  "providers": [
+    {
+      "provider": "virustotal",
+      "state": "ok",
+      "candidates": [],
+      "hostnames": [],
+      "records": {},
+      "errors": [],
+      "message": "Fictitious fixture",
+      "raw": null,
+      "started_at": "2026-07-24T11:00:00Z",
+      "finished_at": "2026-07-24T11:00:01Z"
+    }
+  ],
+  "limitations": [
+    "Fictitious data for report-format demonstration only."
+  ],
+  "recommendations": [
+    "Confirm candidates against the authorized asset inventory."
+  ]
+}

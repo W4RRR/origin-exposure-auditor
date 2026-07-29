@@ -1,0 +1,2 @@
+ip,confidence,score,sources,hostnames,ports,asn,organization,last_seen,active_validation_performed
+203.0.113.10,medium_confidence,43.0,virustotal;securitytrails,api.example.com,443,AS64500,Example Network,2026-01-01T00:00:00+00:00,False

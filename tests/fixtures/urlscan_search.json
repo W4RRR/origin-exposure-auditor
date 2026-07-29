@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "task": {
+        "url": "https://example.com/",
+        "time": "2026-01-01T00:00:00Z"
+      },
+      "page": {
+        "domain": "example.com",
+        "ip": "203.0.113.20",
+        "asn": "64500",
+        "asnname": "Example Network"
+      }
+    }
+  ]
+}
