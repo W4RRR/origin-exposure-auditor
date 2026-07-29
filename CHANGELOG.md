@@ -2,6 +2,13 @@
 
 All notable changes follow a simplified Keep a Changelog format.
 
+## [0.2.1] - 2026-07-29
+
+### Changed
+
+- `-active` now creates an automatic in-memory scope for the supplied domain and its
+  discovered public candidates; `-authorized-scope` remains an optional strict override.
+
 ## [0.2.0] - 2026-07-29
 
 ### Added
@@ -12,8 +19,8 @@ All notable changes follow a simplified Keep a Changelog format.
 
 ### Changed
 
-- The authorizing scope file is now the explicit authorization control for active
-  validation; the separate acknowledgement flag was removed.
+- The authorizing scope file became the explicit authorization control for active
+  validation, and the separate acknowledgement flag was removed.
 - ProjectDiscovery integration is now exposed as `-httpx`.
 - Package and default user-agent version updated to 0.2.0.
 

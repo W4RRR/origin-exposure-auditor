@@ -226,8 +226,8 @@ path remains in the built-in Python implementation.
 
 | Parameter | Meaning |
 |---|---|
-| `-active` | Enables bounded direct validation of retained public candidate IPs. It requires an authorizing scope file. |
-| `-authorized-scope scope.yml` | Loads the YAML allowlist for active validation. It defines authorized domains and IP/CIDR ranges, exclusions, request rate, concurrency, timeout, and whether active validation is enabled. |
+| `-active` | Enables bounded direct validation for the supplied domain. By default, an in-memory scope automatically permits its discovered public candidates; no scope file is created. |
+| `-authorized-scope scope.yml` | Optional advanced override for `-active`. Loads a YAML allowlist with authorized IP/CIDR ranges, exclusions, and custom request limits. |
 | `-legacy-ip-list` | Additionally writes `DOMAIN_ips.txt`, with one retained candidate IP per line, for compatibility with shell scripts and older tools. Structured reports are still produced. |
 | `-httpx` | Uses the optional ProjectDiscovery `httpx` binary for bounded related-hostname probing. It does not replace the built-in direct-IP validator. |
 | `-providers all` | Selects providers. Use `all` or a comma-separated list such as `dns,ct,otx,urlscan`. |
@@ -239,19 +239,28 @@ path remains in the built-in Python implementation.
 
 ### 🎯 Authorized active validation
 
-Active validation is off by default. The `-active` flag and an authorizing scope file
-are mandatory:
+Active validation is off by default. `-active` automatically creates a temporary
+in-memory scope for the exact domain supplied on the command line:
+
+```bash
+origin-audit scan example.com -active
+```
+
+The automatic scope enables discovered public candidates and inherits the configured
+timeout, concurrency, and rate limit. It exists only for that run and does not create
+or modify `scope.yml`. Private, loopback, link-local, multicast, reserved, unspecified,
+and other non-global addresses are never actively validated.
+
+Use `-authorized-scope scope.yml` only when you need an explicit IP allowlist,
+exclusions, or stricter per-investigation limits:
 
 ```bash
 origin-audit scan example.com -active -authorized-scope scope.yml
 ```
 
-The scope file is the explicit authorization control. It must set
-`allow_active_validation: true`, authorize the domain, and
-either include each candidate IP/CIDR or explicitly set
-`allow_discovered_candidates: true`. Exclusions always win. Private, loopback,
-link-local, multicast, reserved, unspecified, and other non-global addresses are never
-actively validated.
+When a scope file is supplied, it must set `allow_active_validation: true`, authorize
+the domain, and include the candidate IP/CIDR or set
+`allow_discovered_candidates: true`. Exclusions always win.
 
 The active path is limited to `GET /`, one same-origin favicon request, and a verifying
 TLS handshake with the target hostname as SNI. Concurrency, request rate, timeout, and
@@ -262,7 +271,7 @@ colored output, ProjectDiscovery `httpx`, a dedicated output directory, and the
 compatibility IP list:
 
 ```bash
-origin-audit -config config.yml -env-file .env -timeout 15 -concurrency 10 -rate-limit 2 -v -color scan example.com -providers all -format json,csv,markdown,html -output-dir ./results -active -authorized-scope scope.yml -httpx -legacy-ip-list
+origin-audit -config config.yml -env-file .env -timeout 15 -concurrency 10 -rate-limit 2 -v -color scan example.com -providers all -format json,csv,markdown,html -output-dir ./results -active -httpx -legacy-ip-list
 ```
 
 This intentionally does not include urlscan submission because submission discloses

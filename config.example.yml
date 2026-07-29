@@ -1,7 +1,7 @@
 timeout_seconds: 10
 concurrency: 5
 rate_limit: 2
-user_agent: origin-exposure-auditor/0.2.0
+user_agent: origin-exposure-auditor/0.2.1
 max_response_bytes: 2000000
 max_redirects: 5
 cache_dir: cache

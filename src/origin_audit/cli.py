@@ -21,7 +21,7 @@ from origin_audit.networking.external_httpx import find_projectdiscovery_httpx
 from origin_audit.orchestrator import ScanOptions, ScanOrchestrator
 from origin_audit.providers import provider_registry
 from origin_audit.reporting import render_existing_report, write_reports
-from origin_audit.scope import load_scope
+from origin_audit.scope import ScopeConfig, load_scope
 from origin_audit.utils.domains import normalize_domain
 
 app = typer.Typer(
@@ -193,7 +193,7 @@ def scan(
     passive_only: Annotated[bool, typer.Option("-passive")] = False,
     active_validate: Annotated[
         bool,
-        typer.Option("-active", help="Enable scope-gated active validation."),
+        typer.Option("-active", help="Validate public candidates for the supplied domain."),
     ] = False,
     authorized_scope: Annotated[
         Path | None, typer.Option("-authorized-scope", exists=True, dir_okay=False)
@@ -220,14 +220,22 @@ def scan(
         _fail("-passive and -active are mutually exclusive")
     scope = None
     if active_validate:
-        if not authorized_scope:
-            _fail("Active validation requires -authorized-scope")
-        try:
-            scope = load_scope(authorized_scope)
-            if not scope.allow_active_validation or not scope.domain_is_authorized(normalized):
-                _fail("The scope file does not authorize active validation for this domain")
-        except OriginAuditError as exc:
-            _fail(str(exc))
+        if authorized_scope:
+            try:
+                scope = load_scope(authorized_scope)
+                if not scope.allow_active_validation or not scope.domain_is_authorized(normalized):
+                    _fail("The scope file does not authorize active validation for this domain")
+            except OriginAuditError as exc:
+                _fail(str(exc))
+        else:
+            scope = ScopeConfig(
+                authorized_domains=[normalized],
+                allow_active_validation=True,
+                allow_discovered_candidates=True,
+                max_requests_per_second=runtime.config.rate_limit,
+                max_concurrent_requests=runtime.config.concurrency,
+                request_timeout_seconds=runtime.config.timeout_seconds,
+            )
     elif authorized_scope:
         _fail("-authorized-scope requires -active")
     if submit_urlscan:

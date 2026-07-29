@@ -46,7 +46,7 @@ def sample_report() -> ScanReport:
     )
     started = datetime(2026, 7, 24, 11, tzinfo=UTC)
     return ScanReport(
-        tool_version="0.2.0",
+        tool_version="0.2.1",
         domain="example.com",
         started_at=started,
         finished_at=started,

@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 
 from origin_audit.cli import app
 from origin_audit.models import ScanReport
-from origin_audit.orchestrator import ScanOutcome
+from origin_audit.orchestrator import ScanOptions, ScanOutcome
 
 runner = CliRunner()
 
@@ -16,7 +16,7 @@ runner = CliRunner()
 def test_version_and_provider_commands() -> None:
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert result.stdout.strip() == "0.2.0"
+    assert result.stdout.strip() == "0.2.1"
     result = runner.invoke(app, ["providers", "list"])
     assert result.exit_code == 0
     assert "virustotal" in result.stdout
@@ -44,18 +44,71 @@ def test_config_and_scope_validation(tmp_path: Path) -> None:
 def test_scan_rejects_unsafe_flag_combinations(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
-        ["scan", "example.com", "-active"],
-    )
-    assert result.exit_code == 2
-    assert "requires -authorized-scope" in result.output
-    result = runner.invoke(
-        app,
         ["scan", "example.com", "-active", "-passive"],
     )
     assert result.exit_code == 2
     assert "mutually exclusive" in result.output
     result = runner.invoke(app, ["scan", "not_a_domain"])
     assert result.exit_code == 2
+    scope = tmp_path / "scope.yml"
+    scope.write_text(
+        "authorized_domains: [example.com]\nallow_active_validation: false\n",
+        encoding="utf-8",
+    )
+    result = runner.invoke(
+        app,
+        ["scan", "example.com", "-active", "-authorized-scope", str(scope)],
+    )
+    assert result.exit_code == 2
+    assert "does not authorize" in result.output
+
+
+def test_active_builds_automatic_scope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = Path(__file__).parents[1] / "examples" / "reports" / "report.json"
+    report = ScanReport.model_validate_json(source.read_text(encoding="utf-8"))
+    directory = tmp_path / "output" / "example.com" / "run"
+    directory.mkdir(parents=True)
+    audit = directory / "audit.log"
+    audit.write_text("{}\n", encoding="utf-8")
+    observed: dict[str, ScanOptions] = {}
+
+    async def fake_scan(
+        orchestrator: object,
+        target: object,
+        options: ScanOptions,
+    ) -> ScanOutcome:
+        del orchestrator, target
+        observed["options"] = options
+        return ScanOutcome(report=report, directory=directory, audit_log=audit)
+
+    monkeypatch.setattr("origin_audit.cli.ScanOrchestrator.scan", fake_scan)
+    result = runner.invoke(
+        app,
+        [
+            "-timeout",
+            "15",
+            "-concurrency",
+            "4",
+            "-rate-limit",
+            "1.5",
+            "scan",
+            "example.com",
+            "-active",
+            "-format",
+            "json",
+        ],
+    )
+    assert result.exit_code == 0
+    options = observed["options"]
+    assert options.scope is not None
+    assert options.scope.authorized_domains == ["example.com"]
+    assert options.scope.allow_discovered_candidates is True
+    assert options.scope.request_timeout_seconds == 15
+    assert options.scope.max_concurrent_requests == 4
+    assert options.scope.max_requests_per_second == 1.5
 
 
 def test_upgrade_shortcut(monkeypatch: pytest.MonkeyPatch) -> None:
