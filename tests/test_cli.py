@@ -16,7 +16,7 @@ runner = CliRunner()
 def test_version_and_provider_commands() -> None:
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert result.stdout.strip() == "0.2.1"
+    assert result.stdout.strip() == "0.2.2"
     result = runner.invoke(app, ["providers", "list"])
     assert result.exit_code == 0
     assert "virustotal" in result.stdout

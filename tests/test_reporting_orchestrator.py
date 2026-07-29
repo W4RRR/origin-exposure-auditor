@@ -46,7 +46,7 @@ def sample_report() -> ScanReport:
     )
     started = datetime(2026, 7, 24, 11, tzinfo=UTC)
     return ScanReport(
-        tool_version="0.2.1",
+        tool_version="0.2.2",
         domain="example.com",
         started_at=started,
         finished_at=started,
@@ -280,6 +280,27 @@ async def test_orchestrator_baseline_waf_active_and_submission(
         )
     assert validated[0].active_validation_performed
     assert validated[1].evidence[-1].type == "active_validation_skipped"
+
+    async def failing_validate(*args: Any, **kwargs: Any) -> CandidateIP:
+        raise RuntimeError("https://example.test/?apikey=visible-secret")
+
+    monkeypatch.setattr("origin_audit.orchestrator.validate_candidate", failing_validate)
+    async with httpx.AsyncClient() as client:
+        failed = await orchestrator._active_validate(
+            Target(domain="example.com"),
+            [CandidateIP(ip="203.0.113.12")],
+            ScanOptions(
+                providers={"dns"},
+                active_validate=True,
+                scope=scope,
+            ),
+            client,
+            observation,
+            None,
+            audit,
+        )
+    assert failed[0].evidence[-1].type == "validation_error"
+    assert "visible-secret" not in (failed[0].evidence[-1].notes or "")
 
     async def fake_submit(*args: Any, **kwargs: Any) -> dict[str, object]:
         return {"visibility": "unlisted"}

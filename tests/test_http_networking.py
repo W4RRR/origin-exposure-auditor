@@ -168,6 +168,7 @@ def test_http_parsing() -> None:
 @pytest.mark.asyncio
 async def test_probe_bounded_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
+        assert request.extensions["sni_hostname"] == "example.com"
         return httpx.Response(
             302,
             headers={
@@ -180,7 +181,12 @@ async def test_probe_bounded_response() -> None:
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        observation, body = await probe(client, url="https://example.com/", maximum_bytes=40)
+        observation, body = await probe(
+            client,
+            url="https://example.com/",
+            maximum_bytes=40,
+            sni_hostname="example.com",
+        )
     assert observation.status_code == 302
     assert observation.title == "Example"
     assert observation.final_url == "https://example.com/next"
@@ -208,10 +214,15 @@ def test_favicon_discovery() -> None:
 @pytest.mark.asyncio
 async def test_fetch_favicon() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
+        assert request.extensions["sni_hostname"] == "example.com"
         return httpx.Response(200, content=b"icon", request=request)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        result = await fetch_favicon(client, ["https://example.com/favicon.ico"])
+        result = await fetch_favicon(
+            client,
+            ["https://example.com/favicon.ico"],
+            sni_hostname="example.com",
+        )
     assert result is not None
     assert result.size == 4
     assert len(result.sha256) == 64

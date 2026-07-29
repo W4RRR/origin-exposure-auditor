@@ -6,7 +6,7 @@ import json
 import logging
 from typing import Any, ClassVar
 
-from origin_audit.utils.redaction import redact_mapping
+from origin_audit.utils.redaction import redact_mapping, redact_text
 from origin_audit.utils.timestamps import utc_now
 
 
@@ -43,6 +43,15 @@ class ColorFormatter(logging.Formatter):
         return f"{prefix}{message}{self.RESET}" if prefix else message
 
 
+class SecretRedactionFilter(logging.Filter):
+    """Redact secrets from fully formatted third-party log messages."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = redact_text(record.getMessage())
+        record.args = ()
+        return True
+
+
 def configure_logging(
     level: str,
     *,
@@ -62,4 +71,7 @@ def configure_logging(
     else:
         formatter = logging.Formatter("%(levelname)s %(message)s")
     handler.setFormatter(formatter)
+    handler.addFilter(SecretRedactionFilter())
     root.addHandler(handler)
+    for logger_name in ("asyncio", "httpcore", "httpx"):
+        logging.getLogger(logger_name).setLevel(logging.WARNING)

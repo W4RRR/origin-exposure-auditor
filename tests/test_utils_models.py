@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -12,13 +13,14 @@ from origin_audit.cache import JsonCache
 from origin_audit.config import AppConfig, load_config, load_environment, validate_config_file
 from origin_audit.deduplication import deduplicate_candidates, merge_candidate
 from origin_audit.exceptions import ConfigurationError, ScopeError
+from origin_audit.logging_config import SecretRedactionFilter, configure_logging
 from origin_audit.models import CandidateIP, Confidence, Evidence
 from origin_audit.scope import ScopeConfig, load_scope
 from origin_audit.scoring import classify, score_candidate, score_candidates
 from origin_audit.utils.domains import domain_matches, is_related_hostname, normalize_domain
 from origin_audit.utils.hashing import md5_hex, normalize_body, sha256_hex, shodan_mmh3
 from origin_audit.utils.ips import is_public_ip, normalize_ip, special_address_reasons
-from origin_audit.utils.redaction import redact_mapping, redact_secret
+from origin_audit.utils.redaction import redact_mapping, redact_secret, redact_text
 from origin_audit.utils.timestamps import timestamp_slug, utc_now
 
 
@@ -78,6 +80,31 @@ def test_redaction() -> None:
     assert redacted["api_key"] == "***REDACTED***"
     assert redacted["nested"][0]["Authorization"] == "***REDACTED***"
     assert redacted["safe"] == 1
+    message = (
+        "GET https://api.example.test/?apikey=visible-secret&output=json "
+        "Authorization: Bearer bearer-secret"
+    )
+    redacted_message = redact_text(message)
+    assert "visible-secret" not in redacted_message
+    assert "bearer-secret" not in redacted_message
+    assert redacted_message.count("***REDACTED***") == 2
+
+
+def test_logging_redacts_secrets_and_quiets_http_clients() -> None:
+    record = logging.LogRecord(
+        name="test",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="GET https://example.test/?token=visible-secret",
+        args=(),
+        exc_info=None,
+    )
+    assert SecretRedactionFilter().filter(record)
+    assert "visible-secret" not in record.getMessage()
+    configure_logging("DEBUG")
+    assert logging.getLogger("httpx").level == logging.WARNING
+    assert logging.getLogger("httpcore").level == logging.WARNING
 
 
 def test_timestamps() -> None:
@@ -180,6 +207,9 @@ def test_scope_validation_rejects_bad_values() -> None:
 def test_config_loading_and_environment_precedence(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    securitytrails = AppConfig().provider("securitytrails")
+    assert securitytrails.requests_per_second == 0.2
+    assert securitytrails.max_retries == 0
     config_path = tmp_path / "config.yml"
     config_path.write_text("concurrency: 3\n", encoding="utf-8")
     assert load_config(config_path).concurrency == 3

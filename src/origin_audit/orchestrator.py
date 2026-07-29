@@ -44,6 +44,7 @@ from origin_audit.rate_limit import AsyncRateLimiter
 from origin_audit.scope import ScopeConfig
 from origin_audit.scoring import score_candidates
 from origin_audit.utils.ips import is_public_ip, special_address_reasons
+from origin_audit.utils.redaction import redact_text
 from origin_audit.utils.timestamps import timestamp_slug, utc_now
 
 
@@ -382,16 +383,29 @@ class ScanOrchestrator:
                     "active_validation",
                     {"ip": candidate.ip, "domain": target.domain, "accepted": True},
                 )
-                return await validate_candidate(
-                    candidate,
-                    domain=target.domain,
-                    scope=scope,
-                    client=client,
-                    baseline=baseline,
-                    baseline_favicon_sha256=baseline_favicon.sha256 if baseline_favicon else None,
-                    maximum_bytes=self.config.max_response_bytes,
-                    limiter=limiter,
-                )
+                try:
+                    return await validate_candidate(
+                        candidate,
+                        domain=target.domain,
+                        scope=scope,
+                        client=client,
+                        baseline=baseline,
+                        baseline_favicon_sha256=baseline_favicon.sha256
+                        if baseline_favicon
+                        else None,
+                        maximum_bytes=self.config.max_response_bytes,
+                        limiter=limiter,
+                    )
+                except Exception as exc:
+                    candidate.evidence.append(
+                        Evidence(
+                            source="active_validation",
+                            type="validation_error",
+                            value=type(exc).__name__,
+                            notes=redact_text(str(exc))[:200],
+                        )
+                    )
+                    return candidate
 
         return list(await asyncio.gather(*(validate(item) for item in candidates)))
 

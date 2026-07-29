@@ -2,6 +2,22 @@
 
 All notable changes follow a simplified Keep a Changelog format.
 
+## [0.2.2] - 2026-07-29
+
+### Fixed
+
+- Pass SNI hostnames as strings for compatibility with current HTTPX, HTTP Core, and
+  AnyIO releases.
+- Isolate unexpected per-candidate active-validation failures so one IP cannot abort
+  an assessment.
+- Redact secret-bearing URL parameters and bearer tokens from log messages.
+
+### Changed
+
+- Suppress noisy dependency-level HTTP and event-loop logs even in verbose mode.
+- Avoid repeated SecurityTrails retries by default when the service returns a quota or
+  rate-limit response.
+
 ## [0.2.1] - 2026-07-29
 
 ### Changed

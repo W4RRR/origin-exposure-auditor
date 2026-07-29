@@ -188,6 +188,9 @@ API v3 uses `CENSYS_API_TOKEN` and optional `CENSYS_ORGANIZATION_ID`. The
 `CENSYS_API_ID` and `CENSYS_API_SECRET` placeholders remain in `.env.example` only to
 make legacy migration explicit; this project does not send them to the v3 API.
 
+Dependency-level HTTP logs are suppressed, and common secret-bearing URL parameters
+and bearer tokens are redacted before human or JSON logging.
+
 In CI/CD, store credentials in the platform secret manager. GitHub Actions workflows
 should reference `${{ secrets.NAME }}` and must not run real provider queries for pull
 requests from forks. This repository's real-provider workflow is manual, fork-blocked,
@@ -441,8 +444,11 @@ The replacement:
 
 - `SKIPPED`: configure the named environment variable or omit that optional provider.
 - `401/403`: verify the key, plan entitlement, and Censys API Access role.
-- `429`: lower the provider rate in `config.yml`; the client already respects bounded
-  retry and `Retry-After`.
+- `429`: check the provider's account quota and plan first. Lower the provider rate in
+  `config.yml` when the quota is request-frequency based. SecurityTrails does not retry
+  `429` by default because this response commonly represents an account quota.
+- `validation_error`: an individual active candidate failed unexpectedly and was
+  retained with error evidence; the remaining candidates continue.
 - no candidates: this is a valid result, not proof that the origin is hidden.
 - `wafw00f` absent: the internal response-indicator check still works.
 - Windows path or shell issues: run inside WSL2 or use Docker Desktop.

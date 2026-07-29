@@ -99,7 +99,7 @@ async def probe(
     if _is_ip(parsed.hostname or "") and not is_public_ip(parsed.hostname or ""):
         raise ValueError("HTTP connection to non-public IP is blocked")
     headers = {"Host": host_header} if host_header else None
-    extensions = {"sni_hostname": sni_hostname.encode("idna")} if sni_hostname else None
+    extensions = {"sni_hostname": sni_hostname} if sni_hostname else None
     started = monotonic()
     request = client.build_request("GET", url, headers=headers, extensions=extensions)
     response: httpx.Response | None = None

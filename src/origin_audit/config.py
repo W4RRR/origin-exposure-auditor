@@ -14,6 +14,13 @@ from origin_audit.exceptions import ConfigurationError
 
 DEFAULT_CONFIG_PATH = Path("config.yml")
 USER_ENV_PATH = Path.home() / ".config" / "origin-exposure-auditor" / ".env"
+_PROVIDER_DEFAULTS: dict[str, dict[str, object]] = {
+    "securitytrails": {
+        "requests_per_second": 0.2,
+        "max_retries": 0,
+        "cache_ttl_hours": 24,
+    },
+}
 
 
 class ProviderSettings(BaseModel):
@@ -54,7 +61,7 @@ class AppConfig(BaseModel):
     timeout_seconds: float = 10.0
     concurrency: int = 5
     rate_limit: float = 2.0
-    user_agent: str = "origin-exposure-auditor/0.2.1"
+    user_agent: str = "origin-exposure-auditor/0.2.2"
     max_response_bytes: int = 2_000_000
     max_redirects: int = 5
     cache_dir: Path = Path("cache")
@@ -64,7 +71,9 @@ class AppConfig(BaseModel):
 
     def provider(self, name: str) -> ProviderSettings:
         """Return explicit settings or safe provider defaults."""
-        return self.providers.get(name, ProviderSettings())
+        if name in self.providers:
+            return self.providers[name]
+        return ProviderSettings.model_validate(_PROVIDER_DEFAULTS.get(name, {}))
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
