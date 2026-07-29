@@ -140,7 +140,7 @@ Requirements: Python 3.12 or newer. Debian 12, Ubuntu 24.04+, current Kali Linux
 recent macOS are supported. On Windows, use WSL2 or Docker Desktop.
 
 ```bash
-git clone https://github.com/example/origin-exposure-auditor.git
+git clone https://github.com/W4RRR/origin-exposure-auditor.git
 cd origin-exposure-auditor
 python3 -m venv .venv
 source .venv/bin/activate
