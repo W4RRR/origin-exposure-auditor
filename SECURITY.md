@@ -22,8 +22,9 @@ remediation plan after validation.
 
 ## Security invariants
 
-- Active candidate connections require the CLI flag, an authorizing scope file, and the
-  explicit acknowledgement flag.
+- Active candidate connections require `-active`. The CLI creates a run-scoped policy
+  for the exact domain and its discovered public candidates, or loads the stricter
+  policy supplied with `-authorized-scope`.
 - Scope exclusions override inclusions.
 - Non-global IPs are never actively validated.
 - TLS verification is always enabled.

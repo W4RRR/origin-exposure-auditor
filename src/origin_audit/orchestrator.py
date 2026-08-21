@@ -44,6 +44,7 @@ from origin_audit.rate_limit import AsyncRateLimiter
 from origin_audit.scope import ScopeConfig
 from origin_audit.scoring import score_candidates
 from origin_audit.utils.ips import is_public_ip, special_address_reasons
+from origin_audit.utils.redaction import redact_text
 from origin_audit.utils.timestamps import timestamp_slug, utc_now
 
 
@@ -56,7 +57,6 @@ class ScanOptions:
     output_dir: Path = Path("output")
     include_non_public: bool = False
     active_validate: bool = False
-    authorization_acknowledged: bool = False
     scope: ScopeConfig | None = None
     scope_file: Path | None = None
     no_cache: bool = False
@@ -201,7 +201,7 @@ class ScanOrchestrator:
             duration_seconds=(finished - started).total_seconds(),
             mode="active_authorized" if options.active_validate else "passive",
             scope_file=str(options.scope_file) if options.scope_file else None,
-            authorization_acknowledged=options.authorization_acknowledged,
+            authorization_acknowledged=options.active_validate and options.scope is not None,
             dns_records=dns_records,
             subdomains=sorted(set(hostnames) - {target.domain}),
             waf_detection=waf,
@@ -360,8 +360,8 @@ class ScanOrchestrator:
         audit_path: Path,
     ) -> list[CandidateIP]:
         scope = options.scope
-        if scope is None or not options.authorization_acknowledged:
-            raise ValueError("Active validation requires scope and authorization acknowledgement")
+        if scope is None:
+            raise ValueError("Active validation requires an authorization scope")
         if not scope.allow_active_validation or not scope.domain_is_authorized(target.domain):
             raise ValueError("Scope does not authorize active validation for this domain")
         semaphore = asyncio.Semaphore(scope.max_concurrent_requests)
@@ -383,16 +383,29 @@ class ScanOrchestrator:
                     "active_validation",
                     {"ip": candidate.ip, "domain": target.domain, "accepted": True},
                 )
-                return await validate_candidate(
-                    candidate,
-                    domain=target.domain,
-                    scope=scope,
-                    client=client,
-                    baseline=baseline,
-                    baseline_favicon_sha256=baseline_favicon.sha256 if baseline_favicon else None,
-                    maximum_bytes=self.config.max_response_bytes,
-                    limiter=limiter,
-                )
+                try:
+                    return await validate_candidate(
+                        candidate,
+                        domain=target.domain,
+                        scope=scope,
+                        client=client,
+                        baseline=baseline,
+                        baseline_favicon_sha256=baseline_favicon.sha256
+                        if baseline_favicon
+                        else None,
+                        maximum_bytes=self.config.max_response_bytes,
+                        limiter=limiter,
+                    )
+                except Exception as exc:
+                    candidate.evidence.append(
+                        Evidence(
+                            source="active_validation",
+                            type="validation_error",
+                            value=type(exc).__name__,
+                            notes=redact_text(str(exc))[:200],
+                        )
+                    )
+                    return candidate
 
         return list(await asyncio.gather(*(validate(item) for item in candidates)))
 

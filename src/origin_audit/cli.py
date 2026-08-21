@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import shutil
+import subprocess  # nosec B404
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, NoReturn
@@ -19,20 +21,35 @@ from origin_audit.networking.external_httpx import find_projectdiscovery_httpx
 from origin_audit.orchestrator import ScanOptions, ScanOrchestrator
 from origin_audit.providers import provider_registry
 from origin_audit.reporting import render_existing_report, write_reports
-from origin_audit.scope import load_scope
+from origin_audit.scope import ScopeConfig, load_scope
 from origin_audit.utils.domains import normalize_domain
 
 app = typer.Typer(
     name="origin-audit",
     help=f"Defensive origin exposure assessment.\n\n{LEGAL_NOTICE}",
     no_args_is_help=True,
+    invoke_without_command=True,
+    add_completion=False,
+    context_settings={"help_option_names": ["-h", "-help"]},
 )
-providers_app = typer.Typer(help="List providers and inspect local availability.")
-config_app = typer.Typer(help="Validate application configuration.")
-scope_app = typer.Typer(help="Validate authorization scope files.")
+providers_app = typer.Typer(
+    help="List providers and inspect local availability.",
+    context_settings={"help_option_names": ["-h", "-help"]},
+)
+config_app = typer.Typer(
+    help="Validate application configuration.",
+    context_settings={"help_option_names": ["-h", "-help"]},
+)
+scope_app = typer.Typer(
+    help="Validate authorization scope files.",
+    context_settings={"help_option_names": ["-h", "-help"]},
+)
 app.add_typer(providers_app, name="providers")
 app.add_typer(config_app, name="config")
 app.add_typer(scope_app, name="scope")
+
+UPGRADE_ARCHIVE_URL = "https://github.com/W4RRR/origin-exposure-auditor/archive/refs/heads/main.zip"
+UPGRADE_TIMEOUT_SECONDS = 300
 
 
 @dataclass
@@ -43,11 +60,48 @@ class Runtime:
     environment: dict[str, str]
     no_cache: bool
     non_interactive: bool
+    color: bool
 
 
 def _fail(message: str, code: int = 2) -> NoReturn:
     typer.secho(f"Error: {message}", fg=typer.colors.RED, err=True)
     raise typer.Exit(code)
+
+
+def _upgrade_from_github(*, color: bool = False) -> None:
+    """Replace the current installation with the latest GitHub main branch."""
+    command = [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        "--force-reinstall",
+        UPGRADE_ARCHIVE_URL,
+    ]
+    typer.secho(
+        "Upgrading origin-audit from GitHub...",
+        fg=typer.colors.CYAN,
+        color=color,
+    )
+    try:
+        completed = subprocess.run(  # noqa: S603  # nosec B603
+            command,
+            check=False,
+            timeout=UPGRADE_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        _fail(f"Upgrade timed out after {UPGRADE_TIMEOUT_SECONDS} seconds", code=1)
+    except OSError as exc:
+        _fail(f"Could not start pip: {exc}", code=1)
+    if completed.returncode != 0:
+        _fail(f"Upgrade failed (pip exit code {completed.returncode})", code=1)
+    typer.secho(
+        "Upgrade complete. Run 'origin-audit version' to verify the installation.",
+        fg=typer.colors.GREEN,
+        bold=True,
+        color=color,
+    )
 
 
 def _provider_data_path() -> Path:
@@ -61,27 +115,40 @@ def _provider_data_path() -> Path:
 def main(
     context: typer.Context,
     config_path: Annotated[
-        Path | None, typer.Option("--config", exists=True, dir_okay=False)
+        Path | None, typer.Option("-config", exists=True, dir_okay=False)
     ] = None,
-    env_file: Annotated[
-        Path | None, typer.Option("--env-file", exists=True, dir_okay=False)
-    ] = None,
-    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
-    cache_dir: Annotated[Path | None, typer.Option("--cache-dir")] = None,
-    no_cache: Annotated[bool, typer.Option("--no-cache")] = False,
-    timeout: Annotated[float | None, typer.Option("--timeout", min=1, max=60)] = None,
-    concurrency: Annotated[int | None, typer.Option("--concurrency", min=1, max=20)] = None,
-    rate_limit: Annotated[float | None, typer.Option("--rate-limit", min=0.1, max=20)] = None,
-    user_agent: Annotated[str | None, typer.Option("--user-agent")] = None,
+    env_file: Annotated[Path | None, typer.Option("-env-file", exists=True, dir_okay=False)] = None,
+    output_dir: Annotated[Path | None, typer.Option("-output-dir")] = None,
+    cache_dir: Annotated[Path | None, typer.Option("-cache-dir")] = None,
+    no_cache: Annotated[bool, typer.Option("-no-cache")] = False,
+    timeout: Annotated[float | None, typer.Option("-timeout", min=1, max=60)] = None,
+    concurrency: Annotated[int | None, typer.Option("-concurrency", min=1, max=20)] = None,
+    rate_limit: Annotated[float | None, typer.Option("-rate-limit", min=0.1, max=20)] = None,
+    user_agent: Annotated[str | None, typer.Option("-user-agent")] = None,
     log_level: Annotated[
-        str, typer.Option("--log-level", help="DEBUG, INFO, WARNING, or ERROR")
+        str, typer.Option("-log-level", help="DEBUG, INFO, WARNING, or ERROR")
     ] = "INFO",
-    quiet: Annotated[bool, typer.Option("--quiet")] = False,
-    verbose: Annotated[bool, typer.Option("--verbose")] = False,
-    json_logs: Annotated[bool, typer.Option("--json-logs")] = False,
-    non_interactive: Annotated[bool, typer.Option("--non-interactive")] = False,
+    quiet: Annotated[bool, typer.Option("-q")] = False,
+    verbose: Annotated[bool, typer.Option("-v")] = False,
+    json_logs: Annotated[bool, typer.Option("-json-logs")] = False,
+    non_interactive: Annotated[bool, typer.Option("-non-interactive")] = False,
+    color: Annotated[
+        bool,
+        typer.Option("-color", help="Colorize human-readable terminal output."),
+    ] = False,
+    upgrade: Annotated[
+        bool,
+        typer.Option(
+            "-up",
+            help="Upgrade origin-audit from the latest GitHub main branch and exit.",
+            is_eager=True,
+        ),
+    ] = False,
 ) -> None:
     """Resolve global settings before executing a subcommand."""
+    if upgrade:
+        _upgrade_from_github(color=color)
+        raise typer.Exit
     try:
         config = load_config(config_path)
     except OriginAuditError as exc:
@@ -101,13 +168,14 @@ def main(
     if verbose:
         log_level = "DEBUG"
     if log_level.upper() not in {"DEBUG", "INFO", "WARNING", "ERROR"}:
-        _fail("Invalid --log-level")
-    configure_logging(log_level, json_logs=json_logs, quiet=quiet)
+        _fail("Invalid -log-level")
+    configure_logging(log_level, json_logs=json_logs, quiet=quiet, color=color)
     context.obj = Runtime(
         config=config,
         environment=load_environment(env_file),
         no_cache=no_cache,
         non_interactive=non_interactive,
+        color=color,
     )
 
 
@@ -116,30 +184,30 @@ def scan(
     context: typer.Context,
     domain: Annotated[str, typer.Argument(help="Authorized domain or HTTP(S) URL")],
     providers: Annotated[
-        str, typer.Option("--providers", help="Comma-separated provider names or all")
+        str, typer.Option("-providers", help="Comma-separated provider names or all")
     ] = "all",
     formats: Annotated[
-        str, typer.Option("--format", help="json,csv,markdown,html")
+        str, typer.Option("-format", help="json,csv,markdown,html")
     ] = "json,csv,markdown,html",
-    scan_output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
-    passive_only: Annotated[bool, typer.Option("--passive-only")] = False,
-    active_validate: Annotated[bool, typer.Option("--active-validate")] = False,
-    authorized_scope: Annotated[
-        Path | None, typer.Option("--authorized-scope", exists=True, dir_okay=False)
-    ] = None,
-    authorized_ack: Annotated[bool, typer.Option("--i-understand-and-am-authorized")] = False,
-    include_non_public: Annotated[bool, typer.Option("--include-non-public")] = False,
-    legacy_ip_list: Annotated[bool, typer.Option("--legacy-ip-list")] = False,
-    save_raw_responses: Annotated[bool, typer.Option("--save-raw-responses")] = False,
-    use_projectdiscovery_httpx: Annotated[
-        bool, typer.Option("--use-projectdiscovery-httpx")
+    scan_output_dir: Annotated[Path | None, typer.Option("-output-dir")] = None,
+    passive_only: Annotated[bool, typer.Option("-passive")] = False,
+    active_validate: Annotated[
+        bool,
+        typer.Option("-active", help="Validate public candidates for the supplied domain."),
     ] = False,
-    submit_urlscan: Annotated[bool, typer.Option("--submit-urlscan")] = False,
+    authorized_scope: Annotated[
+        Path | None, typer.Option("-authorized-scope", exists=True, dir_okay=False)
+    ] = None,
+    include_non_public: Annotated[bool, typer.Option("-include-non-public")] = False,
+    legacy_ip_list: Annotated[bool, typer.Option("-legacy-ip-list")] = False,
+    save_raw_responses: Annotated[bool, typer.Option("-save-raw-responses")] = False,
+    use_projectdiscovery_httpx: Annotated[bool, typer.Option("-httpx")] = False,
+    submit_urlscan: Annotated[bool, typer.Option("-submit-urlscan")] = False,
     urlscan_visibility: Annotated[
-        str, typer.Option("--urlscan-visibility", help="public, unlisted, or private")
+        str, typer.Option("-urlscan-visibility", help="public, unlisted, or private")
     ] = "unlisted",
     accept_urlscan_privacy_risk: Annotated[
-        bool, typer.Option("--accept-urlscan-privacy-risk")
+        bool, typer.Option("-accept-urlscan-privacy-risk")
     ] = False,
 ) -> None:
     """Collect passive evidence and optionally perform scope-gated validation."""
@@ -149,31 +217,42 @@ def scan(
     except OriginAuditError as exc:
         _fail(str(exc))
     if passive_only and active_validate:
-        _fail("--passive-only and --active-validate are mutually exclusive")
+        _fail("-passive and -active are mutually exclusive")
     scope = None
     if active_validate:
-        if not authorized_scope or not authorized_ack:
-            _fail(
-                "Active validation requires --authorized-scope and --i-understand-and-am-authorized"
+        if authorized_scope:
+            try:
+                scope = load_scope(authorized_scope)
+                if not scope.allow_active_validation or not scope.domain_is_authorized(normalized):
+                    _fail("The scope file does not authorize active validation for this domain")
+            except OriginAuditError as exc:
+                _fail(str(exc))
+        else:
+            scope = ScopeConfig(
+                authorized_domains=[normalized],
+                allow_active_validation=True,
+                allow_discovered_candidates=True,
+                max_requests_per_second=runtime.config.rate_limit,
+                max_concurrent_requests=runtime.config.concurrency,
+                request_timeout_seconds=runtime.config.timeout_seconds,
             )
-        try:
-            scope = load_scope(authorized_scope)
-            if not scope.allow_active_validation or not scope.domain_is_authorized(normalized):
-                _fail("The scope file does not authorize active validation for this domain")
-        except OriginAuditError as exc:
-            _fail(str(exc))
-    elif authorized_scope or authorized_ack:
-        _fail("Scope and authorization flags require --active-validate")
+    elif authorized_scope:
+        _fail("-authorized-scope requires -active")
     if submit_urlscan:
         if urlscan_visibility not in {"public", "unlisted", "private"}:
-            _fail("Invalid --urlscan-visibility")
+            _fail("Invalid -urlscan-visibility")
         warning = (
             "Submitting to urlscan.io discloses the target to a third party; visibility "
             f"will be {urlscan_visibility}."
         )
-        typer.secho(f"Privacy warning: {warning}", fg=typer.colors.YELLOW, err=True)
+        typer.secho(
+            f"Privacy warning: {warning}",
+            fg=typer.colors.YELLOW,
+            err=True,
+            color=runtime.color,
+        )
         if runtime.non_interactive and not accept_urlscan_privacy_risk:
-            _fail("--submit-urlscan in non-interactive mode requires --accept-urlscan-privacy-risk")
+            _fail("-submit-urlscan in non-interactive mode requires -accept-urlscan-privacy-risk")
         if (
             not runtime.non_interactive
             and not accept_urlscan_privacy_risk
@@ -192,7 +271,6 @@ def scan(
         output_dir=scan_output_dir or runtime.config.output_dir,
         include_non_public=include_non_public,
         active_validate=active_validate,
-        authorization_acknowledged=authorized_ack,
         scope=scope,
         scope_file=authorized_scope,
         no_cache=runtime.no_cache,
@@ -201,8 +279,8 @@ def scan(
         urlscan_visibility=urlscan_visibility,
         use_projectdiscovery_httpx=use_projectdiscovery_httpx,
         command_summary=(
-            f"origin-audit scan {normalized} --providers {providers} --format {formats}"
-            + (" --active-validate" if active_validate else " --passive-only")
+            f"origin-audit scan {normalized} -providers {providers} -format {formats}"
+            + (" -active" if active_validate else " -passive")
         ),
     )
     orchestrator = ScanOrchestrator(
@@ -221,19 +299,43 @@ def scan(
         )
     except (OriginAuditError, ValueError, OSError) as exc:
         _fail(str(exc), code=1)
-    typer.echo(f"Assessment complete: {outcome.directory}")
-    typer.echo(f"Candidates retained: {len(outcome.report.candidates)}")
+    typer.secho(
+        f"Assessment complete: {outcome.directory}",
+        fg=typer.colors.GREEN,
+        bold=True,
+        color=runtime.color,
+    )
+    typer.secho(
+        f"Candidates retained: {len(outcome.report.candidates)}",
+        fg=typer.colors.CYAN,
+        color=runtime.color,
+    )
     for result in outcome.report.providers:
         message = f": {result.message}" if result.message else ""
-        typer.echo(f"[{str(result.state).upper()}] {result.provider}{message}")
-    typer.echo(f"Files written: {len(written) + 1} (including audit.log)")
+        state = str(result.state).lower()
+        state_color = {
+            "ok": typer.colors.GREEN,
+            "skipped": typer.colors.YELLOW,
+            "failed": typer.colors.RED,
+        }.get(state, typer.colors.WHITE)
+        typer.secho(
+            f"[{state.upper()}] {result.provider}{message}",
+            fg=state_color,
+            color=runtime.color,
+        )
+    typer.secho(
+        f"Files written: {len(written) + 1} (including audit.log)",
+        fg=typer.colors.CYAN,
+        color=runtime.color,
+    )
 
 
 @providers_app.command("list")
-def providers_list() -> None:
+def providers_list(context: typer.Context) -> None:
     """List built-in providers."""
+    runtime: Runtime = context.obj
     for name in provider_registry():
-        typer.echo(name)
+        typer.secho(name, fg=typer.colors.CYAN, color=runtime.color)
 
 
 @providers_app.command("status")
@@ -244,15 +346,23 @@ def providers_status(context: typer.Context) -> None:
         required = provider.required_environment
         configured = all(runtime.environment.get(item) for item in required)
         requirement = ",".join(required) if required else "none"
-        typer.echo(
-            f"{name:20} {'configured' if configured or not required else 'missing':10} "
-            f"credential={requirement}"
+        available = configured or not required
+        typer.secho(
+            f"{name:20} {'configured' if available else 'missing':10} credential={requirement}",
+            fg=typer.colors.GREEN if available else typer.colors.YELLOW,
+            color=runtime.color,
         )
     path = shutil.which("wafw00f")
-    typer.echo(f"{'wafw00f':20} {'installed' if path else 'not installed'}")
+    typer.secho(
+        f"{'wafw00f':20} {'installed' if path else 'not installed'}",
+        fg=typer.colors.GREEN if path else typer.colors.YELLOW,
+        color=runtime.color,
+    )
     projectdiscovery = find_projectdiscovery_httpx()
-    typer.echo(
-        f"{'projectdiscovery-httpx':20} {'installed' if projectdiscovery else 'not installed'}"
+    typer.secho(
+        f"{'projectdiscovery-httpx':20} {'installed' if projectdiscovery else 'not installed'}",
+        fg=typer.colors.GREEN if projectdiscovery else typer.colors.YELLOW,
+        color=runtime.color,
     )
 
 
@@ -266,11 +376,17 @@ def config_validate(
         config = validate_config_file(path) if path else context.obj.config
     except OriginAuditError as exc:
         _fail(str(exc))
-    typer.echo(f"Configuration is valid (concurrency={config.concurrency})")
+    runtime: Runtime = context.obj
+    typer.secho(
+        f"Configuration is valid (concurrency={config.concurrency})",
+        fg=typer.colors.GREEN,
+        color=runtime.color,
+    )
 
 
 @scope_app.command("validate")
 def scope_validate(
+    context: typer.Context,
     path: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
 ) -> None:
     """Validate an authorization scope file."""
@@ -278,16 +394,20 @@ def scope_validate(
         scope = load_scope(path)
     except OriginAuditError as exc:
         _fail(str(exc))
-    typer.echo(
+    runtime: Runtime = context.obj
+    typer.secho(
         f"Scope is valid (active={scope.allow_active_validation}, "
-        f"domains={len(scope.authorized_domains)}, networks={len(scope.authorized_ips)})"
+        f"domains={len(scope.authorized_domains)}, networks={len(scope.authorized_ips)})",
+        fg=typer.colors.GREEN,
+        color=runtime.color,
     )
 
 
 @app.command("report")
 def report_command(
+    context: typer.Context,
     path: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
-    formats: Annotated[str, typer.Option("--format")] = "markdown,html",
+    formats: Annotated[str, typer.Option("-format")] = "markdown,html",
 ) -> None:
     """Re-render an existing report.json."""
     requested = {
@@ -299,10 +419,16 @@ def report_command(
         written = render_existing_report(path, requested)
     except (OSError, ValueError) as exc:
         _fail(str(exc), code=1)
-    typer.echo(f"Rendered {len(written)} files beside {path}")
+    runtime: Runtime = context.obj
+    typer.secho(
+        f"Rendered {len(written)} files beside {path}",
+        fg=typer.colors.GREEN,
+        color=runtime.color,
+    )
 
 
 @app.command()
-def version() -> None:
+def version(context: typer.Context) -> None:
     """Print the installed version."""
-    typer.echo(__version__)
+    runtime: Runtime = context.obj
+    typer.secho(__version__, fg=typer.colors.CYAN, color=runtime.color)

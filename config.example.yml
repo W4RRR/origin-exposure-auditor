@@ -1,7 +1,7 @@
 timeout_seconds: 10
 concurrency: 5
 rate_limit: 2
-user_agent: origin-exposure-auditor/0.1.0
+user_agent: origin-exposure-auditor/0.2.2
 max_response_bytes: 2000000
 max_redirects: 5
 cache_dir: cache
@@ -37,6 +37,10 @@ providers:
     requests_per_second: 1
     max_retries: 3
     cache_ttl_hours: 12
+  securitytrails:
+    requests_per_second: 0.2
+    max_retries: 0
+    cache_ttl_hours: 24
 
 scoring:
   historical_dns: 25
