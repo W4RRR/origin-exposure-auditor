@@ -1,5 +1,14 @@
 # 🕵️ Origin Exposure Auditor
 
+> [!IMPORTANT]
+> This standalone project has been integrated into
+> [Cachaza v1.0.0](https://github.com/W4RRR/cachaza/releases/tag/v1.0.0).
+> Continued development, installation, Origin-IP discovery, heuristic probability
+> ranking, and HTML/PDF reporting now live in
+> [W4RRR/cachaza](https://github.com/W4RRR/cachaza). This repository is retained as a
+> read-only historical archive. See the
+> [migration guide](https://github.com/W4RRR/cachaza/blob/v1.0.0/docs/MIGRATION.md).
+
 `origin-audit` is a defensive CLI for finding evidence of accidental origin-server
 exposure behind a WAF, CDN, or reverse proxy. It correlates current DNS, public
 Certificate Transparency, historical/passive DNS providers, and indexed internet data.
